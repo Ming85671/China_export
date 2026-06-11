@@ -165,45 +165,55 @@ trend_chart = px.area(
 trend_chart.update_traces(line_width=2.5, fillcolor="rgba(22,93,255,0.14)")
 st.plotly_chart(apply_chart_style(trend_chart), use_container_width=True)
 
-left, right = st.columns(2)
 ranked = top_commodities(
     apply_filters(source, start_date, end_date, destinations=destinations),
     limit=10,
 )
-with left:
-    st.subheader("Top 10 出口商品")
-    ranking_chart = px.bar(
-        ranked.sort_values("voy_intake_mt"),
-        x="voy_intake_mt",
-        y="COMMODITY",
-        orientation="h",
-        labels={"COMMODITY": "商品", "voy_intake_mt": "装运量 (mt)"},
-        color_discrete_sequence=["#165DFF"],
-    )
-    ranking_chart.update_layout(hovermode="closest")
-    st.plotly_chart(apply_chart_style(ranking_chart), use_container_width=True)
+st.subheader("Top 10 出口商品")
+ranking_chart = px.bar(
+    ranked.sort_values("voy_intake_mt"),
+    x="voy_intake_mt",
+    y="COMMODITY",
+    orientation="h",
+    labels={"COMMODITY": "商品", "voy_intake_mt": "装运量 (mt)"},
+    color_discrete_sequence=["#165DFF"],
+)
+ranking_chart.update_layout(hovermode="closest")
+st.plotly_chart(apply_chart_style(ranking_chart), use_container_width=True)
 
-with right:
-    st.subheader("Top 10 商品趋势对比（不含 AGGREGATES）")
-    top_names = ranked["COMMODITY"].tolist()
-    top_rows = apply_filters(
-        source,
-        start_date,
-        end_date,
-        commodities=top_names,
-        destinations=destinations,
-    )
-    top_rows = exclude_commodities(top_rows, ["AGGREGATES"])
-    comparison = aggregate_by_period(top_rows, grain, group_columns=["COMMODITY"])
-    comparison_chart = px.line(
-        comparison,
-        x="period",
-        y="voy_intake_mt",
-        color="COMMODITY",
-        labels={"period": "日期", "voy_intake_mt": "装运量 (mt)", "COMMODITY": "商品"},
-    )
-    comparison_chart.update_traces(line_width=2.2)
-    st.plotly_chart(apply_chart_style(comparison_chart), use_container_width=True)
+st.subheader("Top 10 商品趋势对比")
+st.caption("AGGREGATES 已从趋势对比中排除。")
+top_names = ranked["COMMODITY"].tolist()
+top_rows = apply_filters(
+    source,
+    start_date,
+    end_date,
+    commodities=top_names,
+    destinations=destinations,
+)
+top_rows = exclude_commodities(top_rows, ["AGGREGATES"])
+comparison = aggregate_by_period(top_rows, grain, group_columns=["COMMODITY"])
+comparison_chart = px.line(
+    comparison,
+    x="period",
+    y="voy_intake_mt",
+    color="COMMODITY",
+    labels={"period": "日期", "voy_intake_mt": "装运量 (mt)", "COMMODITY": "商品"},
+)
+comparison_chart.update_traces(line_width=2.2)
+comparison_chart = apply_chart_style(comparison_chart, height=520)
+comparison_chart.update_layout(
+    hovermode="closest",
+    legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.22,
+        xanchor="left",
+        x=0,
+    ),
+    margin=dict(l=12, r=12, t=34, b=125),
+)
+st.plotly_chart(comparison_chart, use_container_width=True)
 
 st.subheader("筛选结果明细")
 st.caption("仅用于核对数据，不提供下载。为保证页面性能，最多显示最新 1,000 行。")
