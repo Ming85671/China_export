@@ -118,19 +118,6 @@ def top_commodities(data: pd.DataFrame, limit: int = 10) -> pd.DataFrame:
     )
 
 
-def exclude_commodities(
-    data: pd.DataFrame,
-    commodities: Sequence[str],
-) -> pd.DataFrame:
-    """Exclude named commodities using case-insensitive matching."""
-    excluded = {commodity.strip().casefold() for commodity in commodities}
-    if not excluded or data.empty:
-        return data.copy()
-
-    normalized_names = data["COMMODITY"].astype("string").str.strip().str.casefold()
-    return data[~normalized_names.isin(excluded)].copy()
-
-
 def calculate_metrics(data: pd.DataFrame, grain: str) -> dict[str, Any]:
     """Calculate headline values for the active filter scope."""
     if data.empty:

@@ -11,7 +11,6 @@ from src.analytics import (
     aggregate_by_period,
     apply_filters,
     calculate_metrics,
-    exclude_commodities,
     normalize_shipments,
     top_commodities,
 )
@@ -154,15 +153,26 @@ metric_columns[2].metric("筛选范围商品数", f"{metrics['commodity_count']:
 metric_columns[3].metric("装运量最大商品", metrics["largest_commodity"] or "暂无")
 
 st.subheader("筛选范围装运量趋势")
-trend = aggregate_by_period(filtered, grain)
-trend_chart = px.area(
-    trend,
-    x="period",
-    y="voy_intake_mt",
-    labels={"period": "日期", "voy_intake_mt": "装运量 (mt)"},
-    color_discrete_sequence=["#165DFF"],
-)
-trend_chart.update_traces(line_width=2.5, fillcolor="rgba(22,93,255,0.14)")
+if commodities:
+    trend = aggregate_by_period(filtered, grain, group_columns=["COMMODITY"])
+    trend_chart = px.line(
+        trend,
+        x="period",
+        y="voy_intake_mt",
+        color="COMMODITY",
+        labels={"period": "日期", "voy_intake_mt": "装运量 (mt)", "COMMODITY": "商品"},
+    )
+    trend_chart.update_traces(line_width=2.5)
+else:
+    trend = aggregate_by_period(filtered, grain)
+    trend_chart = px.area(
+        trend,
+        x="period",
+        y="voy_intake_mt",
+        labels={"period": "日期", "voy_intake_mt": "装运量 (mt)"},
+        color_discrete_sequence=["#165DFF"],
+    )
+    trend_chart.update_traces(line_width=2.5, fillcolor="rgba(22,93,255,0.14)")
 st.plotly_chart(apply_chart_style(trend_chart), use_container_width=True)
 
 ranked = top_commodities(
@@ -180,40 +190,6 @@ ranking_chart = px.bar(
 )
 ranking_chart.update_layout(hovermode="closest")
 st.plotly_chart(apply_chart_style(ranking_chart), use_container_width=True)
-
-st.subheader("Top 10 商品趋势对比")
-st.caption("AGGREGATES 已从趋势对比中排除。")
-top_names = ranked["COMMODITY"].tolist()
-top_rows = apply_filters(
-    source,
-    start_date,
-    end_date,
-    commodities=top_names,
-    destinations=destinations,
-)
-top_rows = exclude_commodities(top_rows, ["AGGREGATES"])
-comparison = aggregate_by_period(top_rows, grain, group_columns=["COMMODITY"])
-comparison_chart = px.line(
-    comparison,
-    x="period",
-    y="voy_intake_mt",
-    color="COMMODITY",
-    labels={"period": "日期", "voy_intake_mt": "装运量 (mt)", "COMMODITY": "商品"},
-)
-comparison_chart.update_traces(line_width=2.2)
-comparison_chart = apply_chart_style(comparison_chart, height=520)
-comparison_chart.update_layout(
-    hovermode="closest",
-    legend=dict(
-        orientation="h",
-        yanchor="top",
-        y=-0.22,
-        xanchor="left",
-        x=0,
-    ),
-    margin=dict(l=12, r=12, t=34, b=125),
-)
-st.plotly_chart(comparison_chart, use_container_width=True)
 
 st.subheader("筛选结果明细")
 st.caption("仅用于核对数据，不提供下载。为保证页面性能，最多显示最新 1,000 行。")
