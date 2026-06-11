@@ -17,6 +17,9 @@ from src.analytics import (
 from src.database import load_export_data
 
 
+CHART_COLORS = ["#2563EB", "#D97706", "#0F766E", "#7C3AED", "#BE123C", "#0369A1"]
+
+
 st.set_page_config(
     page_title="China Export Monitor",
     page_icon=None,
@@ -27,23 +30,245 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    :root { --accent: #165DFF; --ink: #111827; --line: #D7DEE8; }
-    .block-container { padding-top: 2rem; max-width: 1500px; }
-    h1, h2, h3 { color: var(--ink); letter-spacing: -0.03em; }
-    [data-testid="stMetric"] {
-        border-top: 3px solid var(--accent);
-        border-bottom: 1px solid var(--line);
-        padding: 0.85rem 0.25rem;
+    :root {
+        --color-primary: #1E40AF;
+        --color-secondary: #2563EB;
+        --color-accent: #D97706;
+        --color-background: #F4F7FB;
+        --color-surface: #FFFFFF;
+        --color-ink: #0F172A;
+        --color-muted: #64748B;
+        --color-border: #DCE5F2;
+        --shadow-card: 0 10px 30px rgba(30, 64, 175, 0.06);
+        --radius-card: 16px;
     }
-    [data-testid="stSidebar"] { border-right: 1px solid var(--line); }
-    div[data-testid="stDataFrame"] { border: 1px solid var(--line); }
+
+    html, body, [class*="css"] {
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--color-ink);
+    }
+    .stApp { background: var(--color-background); }
+    .block-container {
+        max-width: 1480px;
+        padding-top: 1.75rem;
+        padding-bottom: 4rem;
+    }
+    h1, h2, h3 {
+        color: var(--color-ink);
+        letter-spacing: -0.035em;
+    }
+
+    .dashboard-hero {
+        position: relative;
+        overflow: hidden;
+        padding: 2rem 2.25rem;
+        margin-bottom: 1.25rem;
+        border: 1px solid rgba(30, 64, 175, 0.15);
+        border-radius: 20px;
+        background:
+            radial-gradient(circle at 90% 15%, rgba(59, 130, 246, 0.18), transparent 30%),
+            linear-gradient(135deg, #FFFFFF 0%, #F0F6FF 100%);
+        box-shadow: var(--shadow-card);
+    }
+    .dashboard-hero::after {
+        content: "";
+        position: absolute;
+        right: -42px;
+        bottom: -78px;
+        width: 230px;
+        height: 230px;
+        border: 32px solid rgba(30, 64, 175, 0.05);
+        border-radius: 50%;
+    }
+    .dashboard-eyebrow,
+    .section-kicker {
+        color: var(--color-primary);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.13em;
+        line-height: 1.2;
+        text-transform: uppercase;
+    }
+    .dashboard-hero h1 {
+        position: relative;
+        z-index: 1;
+        max-width: 850px;
+        margin: 0.55rem 0 0.65rem;
+        font-size: clamp(2rem, 4vw, 3.2rem);
+        line-height: 1.05;
+    }
+    .dashboard-hero p {
+        position: relative;
+        z-index: 1;
+        max-width: 780px;
+        margin: 0;
+        color: #475569;
+        font-size: 0.98rem;
+        line-height: 1.65;
+    }
+    .dashboard-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        margin-top: 1.15rem;
+        padding: 0.42rem 0.72rem;
+        border: 1px solid #BFDBFE;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        color: #1E3A8A;
+        font-size: 0.76rem;
+        font-weight: 650;
+    }
+    .dashboard-badge::before {
+        content: "";
+        width: 0.46rem;
+        height: 0.46rem;
+        border-radius: 50%;
+        background: #2563EB;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+    .section-heading {
+        margin: 2rem 0 0.65rem;
+    }
+    .section-heading h2 {
+        margin: 0.3rem 0 0;
+        font-size: 1.35rem;
+        line-height: 1.25;
+    }
+
+    [data-testid="stMetric"] {
+        min-height: 132px;
+        padding: 1.15rem 1.2rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-card);
+        background: var(--color-surface);
+        box-shadow: var(--shadow-card);
+        transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        border-color: #BFDBFE;
+        box-shadow: 0 14px 32px rgba(30, 64, 175, 0.1);
+    }
+    [data-testid="stMetricLabel"] {
+        color: var(--color-muted);
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+    [data-testid="stMetricValue"] {
+        color: var(--color-ink);
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: clamp(1.45rem, 2vw, 2rem);
+        font-weight: 700;
+        letter-spacing: -0.04em;
+    }
+
+    [data-testid="stSidebar"] {
+        border-right: 1px solid var(--color-border);
+        background: #FFFFFF;
+    }
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 1.5rem;
+    }
+    [data-testid="stSidebar"] h2 {
+        margin-bottom: 0;
+        color: var(--color-ink);
+        font-size: 1.25rem;
+    }
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] p {
+        color: #475569;
+        font-weight: 600;
+    }
+    [data-baseweb="input"],
+    [data-baseweb="select"] > div {
+        border-color: var(--color-border) !important;
+        border-radius: 10px !important;
+        background: #F8FAFC !important;
+    }
+    [data-baseweb="input"]:focus-within,
+    [data-baseweb="select"] > div:focus-within {
+        border-color: var(--color-secondary) !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.13) !important;
+    }
+    [data-testid="stBaseButton-secondary"] {
+        min-height: 44px;
+        border: 1px solid #BFDBFE;
+        border-radius: 10px;
+        background: #EFF6FF;
+        color: var(--color-primary);
+        font-weight: 700;
+        transition: background 180ms ease, border-color 180ms ease;
+    }
+    [data-testid="stBaseButton-secondary"]:hover {
+        border-color: var(--color-secondary);
+        background: #DBEAFE;
+        color: #1E3A8A;
+    }
+    [data-testid="stSegmentedControl"] {
+        padding: 0.22rem;
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        background: #F1F5F9;
+    }
+
+    [data-testid="stAlert"] {
+        border-radius: 12px;
+        border: 1px solid #BFDBFE;
+        background: #EFF6FF;
+    }
+    [data-testid="stPlotlyChart"],
+    div[data-testid="stDataFrame"] {
+        padding: 0.65rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-card);
+        background: var(--color-surface);
+        box-shadow: var(--shadow-card);
+    }
+    div[data-testid="stDataFrame"] {
+        padding: 0.35rem;
+        overflow: hidden;
+    }
+    [data-testid="stCaptionContainer"] {
+        color: var(--color-muted);
+    }
+    button:focus-visible,
+    input:focus-visible {
+        outline: 3px solid rgba(37, 99, 235, 0.35) !important;
+        outline-offset: 2px;
+    }
+
+    @media (max-width: 768px) {
+        .block-container {
+            padding: 1rem 0.85rem 3rem;
+        }
+        .dashboard-hero {
+            padding: 1.5rem 1.25rem;
+            border-radius: 16px;
+        }
+        .dashboard-hero h1 {
+            font-size: 2rem;
+        }
+        [data-testid="stMetric"] {
+            min-height: 112px;
+        }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            scroll-behavior: auto !important;
+            transition-duration: 0.01ms !important;
+            animation-duration: 0.01ms !important;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
-@st.cache_data(ttl=3600, show_spinner="正在读取数据库数据...")
+@st.cache_data(ttl=3600, show_spinner="Loading database data...")
 def get_source_data(start_date: date, end_date: date) -> pd.DataFrame:
     return load_export_data(st.secrets["mysql"], start_date, end_date)
 
@@ -59,41 +284,82 @@ def format_volume(value: float) -> str:
 def apply_chart_style(figure, height: int = 390):
     figure.update_layout(
         height=height,
-        margin=dict(l=12, r=12, t=34, b=12),
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        font=dict(color="#111827"),
+        margin=dict(l=18, r=18, t=30, b=18),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#475569", family="Inter, Arial, sans-serif", size=12),
         legend_title_text="",
         hovermode="x unified",
+        hoverlabel=dict(
+            bgcolor="#0F172A",
+            bordercolor="#0F172A",
+            font=dict(color="#FFFFFF", family="Inter, Arial, sans-serif"),
+        ),
+        separators=".,",
     )
-    figure.update_xaxes(showgrid=False, linecolor="#D7DEE8")
-    figure.update_yaxes(gridcolor="#E8EDF4", zeroline=False)
+    figure.update_xaxes(
+        showgrid=False,
+        linecolor="#DCE5F2",
+        tickfont=dict(color="#64748B"),
+        title_font=dict(color="#475569"),
+    )
+    figure.update_yaxes(
+        gridcolor="#E8EEF7",
+        linecolor="#DCE5F2",
+        zeroline=False,
+        tickfont=dict(color="#64748B"),
+        title_font=dict(color="#475569"),
+        tickformat="~s",
+    )
     return figure
 
 
-st.title("中国出口商品装运量")
-st.caption(
-    "固定范围：装货国家为 China，卸货国家不为 China。总装运量始终跟随当前商品筛选；Top 10 仅用于排名比较。"
+def render_section_header(kicker: str, title: str) -> None:
+    st.markdown(
+        f"""
+        <div class="section-heading">
+            <div class="section-kicker">{kicker}</div>
+            <h2>{title}</h2>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+st.markdown(
+    """
+    <div class="dashboard-hero">
+        <div class="dashboard-eyebrow">China Export Monitor</div>
+        <h1>China Export Commodity Shipments</h1>
+        <p>
+            Track shipment volume loaded in China and discharged worldwide.
+            Explore commodity trends, compare leading exports, and inspect the underlying shipment records.
+        </p>
+        <div class="dashboard-badge">Live database scope · China outbound cargoes</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 with st.sidebar:
-    st.header("筛选")
+    st.header("Filters")
+    st.caption("Refine the date range, reporting grain, commodity, and destination.")
     default_end = date.today()
     default_start = default_end - timedelta(days=365)
     selected_dates = st.date_input(
-        "日期范围",
+        "Date range",
         value=(default_start, default_end),
         max_value=default_end,
     )
     grain = st.segmented_control(
-        "时间粒度",
+        "Time grain",
         options=["Daily", "Weekly", "Monthly"],
         default="Monthly",
         selection_mode="single",
     )
 
 if not isinstance(selected_dates, (tuple, list)) or len(selected_dates) != 2:
-    st.info("请选择开始日期和结束日期。")
+    st.info("Please select both a start date and an end date.")
     st.stop()
 
 start_date, end_date = selected_dates
@@ -102,25 +368,26 @@ try:
     source = normalize_shipments(get_source_data(start_date, end_date))
 except (KeyError, StreamlitSecretNotFoundError):
     st.error(
-        "尚未配置数据库连接。请在 `.streamlit/secrets.toml` 或 Streamlit Cloud Secrets 中添加 `[mysql]` 配置。"
+        "The database connection is not configured. Add the `[mysql]` configuration "
+        "to `.streamlit/secrets.toml` or Streamlit Community Cloud Secrets."
     )
     st.stop()
 except Exception as exc:
-    st.error(f"数据库读取失败：{exc}")
+    st.error(f"Failed to load data from the database: {exc}")
     st.stop()
 
 with st.sidebar:
     commodities = st.multiselect(
-        "商品",
+        "Commodity",
         options=sorted(source["COMMODITY"].unique()),
-        placeholder="默认全部商品，可搜索多选",
+        placeholder="All commodities by default; search to select multiple",
     )
     destinations = st.multiselect(
-        "目的地国家",
+        "Destination country",
         options=sorted(source["discharge_country"].unique()),
-        placeholder="默认全部非中国国家",
+        placeholder="All destinations outside China by default",
     )
-    if st.button("刷新数据库缓存", use_container_width=True):
+    if st.button("Refresh database cache", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
@@ -133,26 +400,26 @@ filtered = apply_filters(
 )
 
 if filtered.empty:
-    st.warning("当前筛选范围没有数据，请调整日期、商品或目的地国家。")
+    st.warning("No data is available for the current filters. Adjust the date range, commodity, or destination country.")
     st.stop()
 
-scope_label = "全部商品" if not commodities else "、".join(commodities[:3])
+scope_label = "All commodities" if not commodities else ", ".join(commodities[:3])
 if len(commodities) > 3:
-    scope_label += f" 等 {len(commodities)} 个商品"
-st.info(f"当前总装运量口径：{scope_label}")
+    scope_label += f", among {len(commodities)} selected commodities"
+st.info(f"Current total shipment volume scope: {scope_label}")
 
 metrics = calculate_metrics(filtered, grain)
 metric_columns = st.columns(4)
-metric_columns[0].metric("筛选范围总装运量", format_volume(metrics["total_volume"]))
+metric_columns[0].metric("Total Shipment Volume", format_volume(metrics["total_volume"]))
 change = metrics["period_change_pct"]
 metric_columns[1].metric(
-    "最新周期环比",
-    "暂无对比" if change is None else f"{change:+.1f}%",
+    "Latest Period Change",
+    "No comparison" if change is None else f"{change:+.1f}%",
 )
-metric_columns[2].metric("筛选范围商品数", f"{metrics['commodity_count']:,}")
-metric_columns[3].metric("装运量最大商品", metrics["largest_commodity"] or "暂无")
+metric_columns[2].metric("Commodity Count", f"{metrics['commodity_count']:,}")
+metric_columns[3].metric("Largest Commodity by Volume", metrics["largest_commodity"] or "N/A")
 
-st.subheader("筛选范围装运量趋势")
+render_section_header("Trend analysis", "Shipment Volume Trend")
 if commodities:
     trend = aggregate_by_period(filtered, grain, group_columns=["COMMODITY"])
     trend_chart = px.line(
@@ -160,39 +427,55 @@ if commodities:
         x="period",
         y="voy_intake_mt",
         color="COMMODITY",
-        labels={"period": "日期", "voy_intake_mt": "装运量 (mt)", "COMMODITY": "商品"},
+        labels={
+            "period": "Date",
+            "voy_intake_mt": "Shipment Volume (mt)",
+            "COMMODITY": "Commodity",
+        },
+        color_discrete_sequence=CHART_COLORS,
     )
-    trend_chart.update_traces(line_width=2.5)
+    trend_chart.update_traces(
+        line_width=2.8,
+        hovertemplate="%{y:,.0f} mt<extra>%{fullData.name}</extra>",
+    )
 else:
     trend = aggregate_by_period(filtered, grain)
     trend_chart = px.area(
         trend,
         x="period",
         y="voy_intake_mt",
-        labels={"period": "日期", "voy_intake_mt": "装运量 (mt)"},
-        color_discrete_sequence=["#165DFF"],
+        labels={"period": "Date", "voy_intake_mt": "Shipment Volume (mt)"},
+        color_discrete_sequence=[CHART_COLORS[0]],
     )
-    trend_chart.update_traces(line_width=2.5, fillcolor="rgba(22,93,255,0.14)")
+    trend_chart.update_traces(
+        line_width=2.8,
+        fillcolor="rgba(37,99,235,0.12)",
+        hovertemplate="%{y:,.0f} mt<extra></extra>",
+    )
 st.plotly_chart(apply_chart_style(trend_chart), use_container_width=True)
 
 ranked = top_commodities(
     apply_filters(source, start_date, end_date, destinations=destinations),
     limit=10,
 )
-st.subheader("Top 10 出口商品")
+render_section_header("Ranked comparison", "Top 10 Export Commodities")
 ranking_chart = px.bar(
     ranked.sort_values("voy_intake_mt"),
     x="voy_intake_mt",
     y="COMMODITY",
     orientation="h",
-    labels={"COMMODITY": "商品", "voy_intake_mt": "装运量 (mt)"},
-    color_discrete_sequence=["#165DFF"],
+    labels={"COMMODITY": "Commodity", "voy_intake_mt": "Shipment Volume (mt)"},
+    color_discrete_sequence=["#2563EB"],
 )
-ranking_chart.update_layout(hovermode="closest")
+ranking_chart.update_traces(
+    marker_line_width=0,
+    hovertemplate="%{y}<br>%{x:,.0f} mt<extra></extra>",
+)
+ranking_chart.update_layout(hovermode="closest", bargap=0.3)
 st.plotly_chart(apply_chart_style(ranking_chart), use_container_width=True)
 
-st.subheader("筛选结果明细")
-st.caption("仅用于核对数据，不提供下载。为保证页面性能，最多显示最新 1,000 行。")
+render_section_header("Data inspection", "Filtered Shipment Details")
+st.caption("For data verification only; downloads are not available. The latest 1,000 rows are displayed for performance.")
 detail = filtered.sort_values("load_start_date", ascending=False).head(1000).copy()
 detail["load_start_date"] = detail["load_start_date"].dt.date
 st.dataframe(
@@ -200,9 +483,9 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
     column_config={
-        "load_start_date": "装货开始日期",
-        "COMMODITY": "商品",
-        "discharge_country": "目的地国家",
-        "voy_intake_mt": st.column_config.NumberColumn("装运量 (mt)", format="%.0f"),
+        "load_start_date": "Load Start Date",
+        "COMMODITY": "Commodity",
+        "discharge_country": "Destination Country",
+        "voy_intake_mt": st.column_config.NumberColumn("Shipment Volume (mt)", format="%.0f"),
     },
 )
