@@ -6,6 +6,7 @@ from src.analytics import (
     aggregate_by_period,
     apply_filters,
     calculate_metrics,
+    exclude_commodities,
     normalize_shipments,
     top_commodities,
 )
@@ -79,6 +80,17 @@ class AnalyticsTests(unittest.TestCase):
         self.assertEqual(set(result["COMMODITY"]), {"Steel", "Coal"})
         self.assertEqual(result["voy_intake_mt"].tolist(), [400, 400])
         self.assertNotIn("Other", result["COMMODITY"].tolist())
+
+    def test_exclude_commodities_is_case_insensitive(self):
+        normalized = normalize_shipments(self.raw)
+        extra = normalized.iloc[[0]].copy()
+        extra["COMMODITY"] = "AGGREGATES"
+        data = pd.concat([normalized, extra], ignore_index=True)
+
+        result = exclude_commodities(data, ["aggregates"])
+
+        self.assertNotIn("AGGREGATES", result["COMMODITY"].tolist())
+        self.assertEqual(len(result), len(normalized))
 
 
 if __name__ == "__main__":

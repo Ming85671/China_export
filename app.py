@@ -11,6 +11,7 @@ from src.analytics import (
     aggregate_by_period,
     apply_filters,
     calculate_metrics,
+    exclude_commodities,
     normalize_shipments,
     top_commodities,
 )
@@ -183,7 +184,7 @@ with left:
     st.plotly_chart(apply_chart_style(ranking_chart), use_container_width=True)
 
 with right:
-    st.subheader("Top 10 商品趋势对比")
+    st.subheader("Top 10 商品趋势对比（不含 AGGREGATES）")
     top_names = ranked["COMMODITY"].tolist()
     top_rows = apply_filters(
         source,
@@ -192,6 +193,7 @@ with right:
         commodities=top_names,
         destinations=destinations,
     )
+    top_rows = exclude_commodities(top_rows, ["AGGREGATES"])
     comparison = aggregate_by_period(top_rows, grain, group_columns=["COMMODITY"])
     comparison_chart = px.line(
         comparison,
