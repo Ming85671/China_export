@@ -314,6 +314,24 @@ def apply_chart_style(figure, height: int = 390):
     return figure
 
 
+def apply_trend_chart_style(figure, trend: pd.DataFrame):
+    figure = apply_chart_style(figure)
+    figure.update_layout(
+        margin=dict(l=18, r=18, t=70, b=18),
+        legend=dict(
+            orientation="h",
+            x=1,
+            xanchor="right",
+            y=1.02,
+            yanchor="bottom",
+        ),
+    )
+    if not trend.empty:
+        max_volume = trend["voy_intake_mt"].max()
+        figure.update_yaxes(range=[None, max_volume * 1.12])
+    return figure
+
+
 def render_section_header(kicker: str, title: str) -> None:
     st.markdown(
         f"""
@@ -452,7 +470,7 @@ else:
         fillcolor="rgba(37,99,235,0.12)",
         hovertemplate="%{y:,.0f} mt<extra></extra>",
     )
-st.plotly_chart(apply_chart_style(trend_chart), use_container_width=True)
+st.plotly_chart(apply_trend_chart_style(trend_chart, trend), use_container_width=True)
 
 ranked = top_commodities(
     apply_filters(source, start_date, end_date, destinations=destinations),
