@@ -11,6 +11,7 @@ from src.analytics import (
     aggregate_by_period,
     apply_filters,
     calculate_metrics,
+    nice_axis_tick_step,
     nice_axis_upper_bound,
     normalize_shipments,
     top_commodities,
@@ -328,7 +329,16 @@ def apply_trend_chart_style(figure, trend: pd.DataFrame):
     )
     if not trend.empty:
         max_volume = trend["voy_intake_mt"].max()
-        figure.update_yaxes(range=[None, nice_axis_upper_bound(max_volume)])
+        min_volume = trend["voy_intake_mt"].min()
+        y_axis_upper_bound = nice_axis_upper_bound(max_volume)
+        y_axis_tick_step = nice_axis_tick_step(y_axis_upper_bound)
+        y_axis_lower_bound = (min_volume // y_axis_tick_step) * y_axis_tick_step
+        figure.update_yaxes(
+            range=[y_axis_lower_bound, y_axis_upper_bound],
+            tickmode="linear",
+            tick0=0,
+            dtick=nice_axis_tick_step(y_axis_upper_bound),
+        )
     return figure
 
 

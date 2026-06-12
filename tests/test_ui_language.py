@@ -31,6 +31,8 @@ class UiLanguageTests(unittest.TestCase):
             'orientation="h"',
             'xanchor="right"',
             "nice_axis_upper_bound(max_volume)",
+            'tickmode="linear"',
+            "dtick=nice_axis_tick_step(y_axis_upper_bound)",
             "apply_trend_chart_style(trend_chart, trend)",
         ):
             with self.subTest(expected_token=expected_token):

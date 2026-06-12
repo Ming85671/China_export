@@ -6,6 +6,7 @@ from src.analytics import (
     aggregate_by_period,
     apply_filters,
     calculate_metrics,
+    nice_axis_tick_step,
     nice_axis_upper_bound,
     normalize_shipments,
     top_commodities,
@@ -135,6 +136,12 @@ class AnalyticsTests(unittest.TestCase):
     def test_nice_axis_upper_bound_is_a_clean_tick_above_the_maximum(self):
         self.assertEqual(nice_axis_upper_bound(2_340_791), 2_500_000)
         self.assertEqual(nice_axis_upper_bound(2_500_000), 3_000_000)
+
+    def test_nice_axis_tick_step_places_a_tick_at_the_upper_bound(self):
+        upper_bound = nice_axis_upper_bound(2_340_791)
+
+        self.assertEqual(nice_axis_tick_step(upper_bound), 500_000)
+        self.assertEqual(upper_bound % nice_axis_tick_step(upper_bound), 0)
 
     def test_top_commodities_returns_only_ranked_commodities_without_other(self):
         normalized = normalize_shipments(self.raw)

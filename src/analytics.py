@@ -35,6 +35,28 @@ def nice_axis_upper_bound(value: float) -> float:
     return 10 * magnitude
 
 
+def nice_axis_tick_step(upper_bound: float) -> float:
+    """Return a clean tick interval that lands exactly on the upper bound."""
+    if upper_bound <= 0:
+        return 0.2
+
+    magnitude = 10 ** floor(log10(upper_bound))
+    scaled_upper_bound = round(upper_bound / magnitude, 10)
+    step_factors = {
+        1: 0.2,
+        1.5: 0.3,
+        2: 0.5,
+        2.5: 0.5,
+        3: 0.5,
+        4: 1,
+        5: 1,
+        6: 1,
+        8: 2,
+        10: 2,
+    }
+    return step_factors.get(scaled_upper_bound, scaled_upper_bound / 5) * magnitude
+
+
 def normalize_shipments(data: pd.DataFrame) -> pd.DataFrame:
     """Return clean shipment rows with consistent dates, volumes, and labels."""
     missing = [column for column in REQUIRED_COLUMNS if column not in data.columns]
