@@ -6,6 +6,7 @@ from src.analytics import (
     aggregate_by_period,
     apply_filters,
     calculate_metrics,
+    nice_axis_upper_bound,
     normalize_shipments,
     top_commodities,
 )
@@ -130,6 +131,10 @@ class AnalyticsTests(unittest.TestCase):
 
         self.assertEqual(metrics["period_change_pct"], 100)
         self.assertEqual(metrics["total_volume"], 350)
+
+    def test_nice_axis_upper_bound_is_a_clean_tick_above_the_maximum(self):
+        self.assertEqual(nice_axis_upper_bound(2_340_791), 2_500_000)
+        self.assertEqual(nice_axis_upper_bound(2_500_000), 3_000_000)
 
     def test_top_commodities_returns_only_ranked_commodities_without_other(self):
         normalized = normalize_shipments(self.raw)

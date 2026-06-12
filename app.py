@@ -11,6 +11,7 @@ from src.analytics import (
     aggregate_by_period,
     apply_filters,
     calculate_metrics,
+    nice_axis_upper_bound,
     normalize_shipments,
     top_commodities,
 )
@@ -317,7 +318,6 @@ def apply_chart_style(figure, height: int = 390):
 def apply_trend_chart_style(figure, trend: pd.DataFrame):
     figure = apply_chart_style(figure)
     figure.update_layout(
-        margin=dict(l=18, r=18, t=70, b=18),
         legend=dict(
             orientation="h",
             x=1,
@@ -328,7 +328,7 @@ def apply_trend_chart_style(figure, trend: pd.DataFrame):
     )
     if not trend.empty:
         max_volume = trend["voy_intake_mt"].max()
-        figure.update_yaxes(range=[None, max_volume * 1.12])
+        figure.update_yaxes(range=[None, nice_axis_upper_bound(max_volume)])
     return figure
 
 

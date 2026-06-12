@@ -30,11 +30,13 @@ class UiLanguageTests(unittest.TestCase):
             "def apply_trend_chart_style",
             'orientation="h"',
             'xanchor="right"',
-            "max_volume * 1.12",
+            "nice_axis_upper_bound(max_volume)",
             "apply_trend_chart_style(trend_chart, trend)",
         ):
             with self.subTest(expected_token=expected_token):
                 self.assertIn(expected_token, app_source)
+
+        self.assertNotIn("margin=dict(l=18, r=18, t=70, b=18)", app_source)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from math import floor, log10
 from typing import Any
 
 import pandas as pd
@@ -18,6 +19,20 @@ PERIOD_FREQUENCIES = {
     "Weekly": "W-MON",
     "Monthly": "MS",
 }
+
+
+def nice_axis_upper_bound(value: float) -> float:
+    """Return a clean chart-axis limit that is strictly above the value."""
+    if value <= 0:
+        return 1.0
+
+    magnitude = 10 ** floor(log10(value))
+    scaled_value = value / magnitude
+    for candidate in (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10):
+        if candidate > scaled_value:
+            return candidate * magnitude
+
+    return 10 * magnitude
 
 
 def normalize_shipments(data: pd.DataFrame) -> pd.DataFrame:
