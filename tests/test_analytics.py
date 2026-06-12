@@ -9,6 +9,8 @@ from src.analytics import (
     nice_axis_tick_step,
     nice_axis_upper_bound,
     normalize_shipments,
+    prepare_weekly_average_comparison,
+    weekly_historical_stats,
     top_commodities,
 )
 
@@ -151,6 +153,99 @@ class AnalyticsTests(unittest.TestCase):
         self.assertEqual(set(result["COMMODITY"]), {"Steel", "Coal"})
         self.assertEqual(result["voy_intake_mt"].tolist(), [400, 400])
         self.assertNotIn("Other", result["COMMODITY"].tolist())
+
+    def test_prepare_weekly_average_comparison_aligns_five_year_history_to_selected_window(self):
+        normalized = normalize_shipments(
+            pd.DataFrame(
+                {
+                    "load_start_date": [
+                        "2020-01-06",
+                        "2021-01-04",
+                        "2022-01-03",
+                        "2023-01-02",
+                        "2024-01-01",
+                        "2025-01-06",
+                        "2026-01-05",
+                        "2026-01-12",
+                        "2026-06-08",
+                    ],
+                    "voy_intake_mt": [70, 140, 210, 280, 350, 420, 490, 560, 700],
+                    "COMMODITY": ["Coal"] * 9,
+                    "discharge_country": ["Japan"] * 9,
+                }
+            )
+        )
+
+        result = prepare_weekly_average_comparison(
+            normalized,
+            start_date="2025-06-13",
+            end_date="2026-01-18",
+            as_of="2026-06-13",
+        )
+
+        self.assertEqual(sorted(result["year"].unique()), [2021, 2022, 2023, 2024, 2025, 2026])
+        self.assertEqual(result[result["year"] == 2026]["daily_average_mt"].tolist(), [70.0, 80.0])
+        self.assertNotIn(2020, result["year"].tolist())
+        self.assertNotIn(700 / 7, result["daily_average_mt"].tolist())
+
+    def test_prepare_weekly_average_comparison_excludes_incomplete_current_week(self):
+        normalized = normalize_shipments(
+            pd.DataFrame(
+                {
+                    "load_start_date": ["2026-06-01", "2026-06-08"],
+                    "voy_intake_mt": [700, 1400],
+                    "COMMODITY": ["Coal", "Coal"],
+                    "discharge_country": ["Japan", "Japan"],
+                }
+            )
+        )
+
+        result = prepare_weekly_average_comparison(
+            normalized,
+            start_date="2026-06-01",
+            end_date="2026-06-13",
+            as_of="2026-06-13",
+        )
+
+        self.assertEqual(result["week_start"].tolist(), [pd.Timestamp("2026-06-01")])
+        self.assertEqual(result["daily_average_mt"].tolist(), [100.0])
+
+    def test_prepare_weekly_average_comparison_calculates_four_week_average(self):
+        normalized = normalize_shipments(
+            pd.DataFrame(
+                {
+                    "load_start_date": pd.date_range("2026-01-05", periods=4, freq="7D"),
+                    "voy_intake_mt": [70, 140, 210, 280],
+                    "COMMODITY": ["Coal"] * 4,
+                    "discharge_country": ["Japan"] * 4,
+                }
+            )
+        )
+
+        result = prepare_weekly_average_comparison(
+            normalized,
+            start_date="2026-01-01",
+            end_date="2026-02-01",
+            as_of="2026-06-13",
+        )
+
+        self.assertEqual(result["four_week_average_mt"].tolist(), [10.0, 15.0, 20.0, 25.0])
+
+    def test_weekly_historical_stats_uses_prior_years_only(self):
+        weekly = pd.DataFrame(
+            {
+                "year": [2024, 2025, 2026],
+                "week_seq": [0, 0, 0],
+                "x_date": pd.to_datetime(["2026-01-05"] * 3),
+                "daily_average_mt": [10.0, 30.0, 100.0],
+            }
+        )
+
+        result = weekly_historical_stats(weekly, comparison_year=2026)
+
+        self.assertEqual(result.iloc[0]["min"], 10.0)
+        self.assertEqual(result.iloc[0]["median"], 20.0)
+        self.assertEqual(result.iloc[0]["max"], 30.0)
 
 if __name__ == "__main__":
     unittest.main()

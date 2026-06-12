@@ -163,6 +163,116 @@ def top_commodities(data: pd.DataFrame, limit: int = 10) -> pd.DataFrame:
     )
 
 
+def prepare_weekly_average_comparison(
+    data: pd.DataFrame,
+    start_date: Any,
+    end_date: Any,
+    as_of: Any | None = None,
+) -> pd.DataFrame:
+    """Align weekly daily-average shipment volume across six calendar years."""
+    columns = [
+        "week_start",
+        "year",
+        "week_seq",
+        "x_date",
+        "daily_average_mt",
+        "four_week_average_mt",
+    ]
+    if data.empty:
+        return pd.DataFrame(columns=columns)
+
+    comparison_end = pd.Timestamp(end_date).normalize()
+    comparison_year = comparison_end.year
+    comparison_start = max(
+        pd.Timestamp(start_date).normalize(),
+        pd.Timestamp(comparison_year, 1, 1),
+    )
+    reference_date = (
+        pd.Timestamp.now().normalize()
+        if as_of is None
+        else pd.Timestamp(as_of).normalize()
+    )
+    current_week_start = reference_date.to_period("W-SUN").start_time
+
+    weekly = data.copy()
+    weekly["week_start"] = (
+        weekly["load_start_date"].dt.to_period("W-SUN").dt.start_time
+    )
+    weekly = weekly[weekly["week_start"] < current_week_start]
+    weekly = (
+        weekly.groupby("week_start", as_index=False)["voy_intake_mt"]
+        .sum()
+        .sort_values("week_start")
+    )
+    if weekly.empty:
+        return pd.DataFrame(columns=columns)
+
+    weekly["year"] = weekly["week_start"].dt.year
+    weekly = weekly[
+        weekly["year"].between(comparison_year - 5, comparison_year)
+    ].copy()
+    if weekly.empty:
+        return pd.DataFrame(columns=columns)
+
+    first_mondays = pd.to_datetime(weekly["year"].astype(str) + "-01-01")
+    first_mondays += pd.to_timedelta((7 - first_mondays.dt.weekday) % 7, unit="D")
+    weekly["week_seq"] = (
+        (weekly["week_start"] - first_mondays).dt.days // 7
+    ).astype(int)
+
+    comparison_first_monday = pd.Timestamp(comparison_year, 1, 1)
+    comparison_first_monday += pd.Timedelta(
+        days=(7 - comparison_first_monday.weekday()) % 7
+    )
+    window_start_seq = max(
+        0,
+        int((comparison_start - comparison_first_monday).days // 7),
+    )
+    window_end_seq = int((comparison_end - comparison_first_monday).days // 7)
+    weekly = weekly[
+        weekly["week_seq"].between(window_start_seq, window_end_seq)
+    ].copy()
+    if weekly.empty:
+        return pd.DataFrame(columns=columns)
+
+    weekly["x_date"] = comparison_first_monday + pd.to_timedelta(
+        weekly["week_seq"] * 7,
+        unit="D",
+    )
+    weekly["daily_average_mt"] = weekly["voy_intake_mt"] / 7
+    weekly["four_week_average_mt"] = weekly.groupby("year")[
+        "daily_average_mt"
+    ].transform(lambda values: values.rolling(window=4, min_periods=1).mean())
+    return weekly[columns].sort_values(["year", "week_seq"]).reset_index(drop=True)
+
+
+def weekly_historical_stats(
+    weekly: pd.DataFrame,
+    comparison_year: int,
+) -> pd.DataFrame:
+    """Summarize prior-year weekly daily averages for historical range bands."""
+    columns = ["week_seq", "x_date", "min", "q25", "median", "q75", "max"]
+    if weekly.empty:
+        return pd.DataFrame(columns=columns)
+
+    history = weekly[weekly["year"] < comparison_year]
+    if history.empty:
+        return pd.DataFrame(columns=columns)
+
+    stats = (
+        history.groupby(["week_seq", "x_date"])["daily_average_mt"]
+        .agg(
+            min="min",
+            q25=lambda values: values.quantile(0.25),
+            median="median",
+            q75=lambda values: values.quantile(0.75),
+            max="max",
+        )
+        .reset_index()
+    )
+    return stats[columns].sort_values("week_seq").reset_index(drop=True)
+
+
 def calculate_metrics(
     data: pd.DataFrame,
     grain: str,

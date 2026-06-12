@@ -11,6 +11,8 @@ Streamlit dashboard for commodity shipments loaded in China and discharged outsi
 - Top 10 commodity ranking without an `Other` group
 - Selected commodities appear as separate lines in the main shipment-volume trend
 - Inspection-only detail table with no download feature, limited to the latest 1,000 rows for browser performance
+- Weekly daily-average comparison against the previous five years and historical ranges
+- Current-year weekly daily-average bars with a rolling four-week average
 
 ## Local setup
 

@@ -4,6 +4,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
 
@@ -14,7 +15,9 @@ from src.analytics import (
     nice_axis_tick_step,
     nice_axis_upper_bound,
     normalize_shipments,
+    prepare_weekly_average_comparison,
     top_commodities,
+    weekly_historical_stats,
 )
 from src.database import load_export_data
 
@@ -348,6 +351,151 @@ def apply_trend_chart_style(figure, trend: pd.DataFrame):
     return figure
 
 
+def make_weekly_average_range_chart(weekly: pd.DataFrame, comparison_year: int):
+    """Show the comparison year against prior years and historical bands."""
+    if weekly.empty:
+        return None
+
+    current = weekly[weekly["year"] == comparison_year]
+    if current.empty:
+        return None
+
+    history_stats = weekly_historical_stats(weekly, comparison_year)
+    figure = go.Figure()
+    if not history_stats.empty:
+        figure.add_trace(
+            go.Scatter(
+                x=history_stats["x_date"],
+                y=history_stats["min"],
+                mode="lines",
+                line=dict(width=0),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+        figure.add_trace(
+            go.Scatter(
+                x=history_stats["x_date"],
+                y=history_stats["max"],
+                mode="lines",
+                line=dict(width=0),
+                fill="tonexty",
+                fillcolor="rgba(37,99,235,0.09)",
+                name="Historical min-max",
+                customdata=history_stats[["min", "max"]],
+                hovertemplate="Min-max: %{customdata[0]:,.0f} - %{customdata[1]:,.0f} mt/day<extra></extra>",
+            )
+        )
+        figure.add_trace(
+            go.Scatter(
+                x=history_stats["x_date"],
+                y=history_stats["q25"],
+                mode="lines",
+                line=dict(width=0),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+        figure.add_trace(
+            go.Scatter(
+                x=history_stats["x_date"],
+                y=history_stats["q75"],
+                mode="lines",
+                line=dict(width=0),
+                fill="tonexty",
+                fillcolor="rgba(37,99,235,0.18)",
+                name="Historical 25%-75%",
+                customdata=history_stats[["q25", "q75"]],
+                hovertemplate="25%-75%: %{customdata[0]:,.0f} - %{customdata[1]:,.0f} mt/day<extra></extra>",
+            )
+        )
+        figure.add_trace(
+            go.Scatter(
+                x=history_stats["x_date"],
+                y=history_stats["median"],
+                mode="lines",
+                line=dict(color="#0F172A", width=2),
+                name="Historical median",
+                hovertemplate="Median: %{y:,.0f} mt/day<extra></extra>",
+            )
+        )
+
+    past_years = sorted(
+        weekly.loc[weekly["year"] < comparison_year, "year"].unique()
+    )
+    for index, year in enumerate(past_years):
+        year_data = weekly[weekly["year"] == year]
+        figure.add_trace(
+            go.Scatter(
+                x=year_data["x_date"],
+                y=year_data["daily_average_mt"],
+                mode="lines",
+                line=dict(
+                    color=CHART_COLORS[(index + 1) % len(CHART_COLORS)],
+                    width=1.3,
+                    dash="dot" if year == comparison_year - 1 else "solid",
+                ),
+                opacity=0.7,
+                name=str(year),
+                hovertemplate=f"{year}: " + "%{y:,.0f} mt/day<extra></extra>",
+            )
+        )
+
+    figure.add_trace(
+        go.Scatter(
+            x=current["x_date"],
+            y=current["daily_average_mt"],
+            mode="lines+markers",
+            line=dict(color=CHART_COLORS[0], width=3),
+            marker=dict(color=CHART_COLORS[0], size=6),
+            name=str(comparison_year),
+            hovertemplate=f"{comparison_year}: " + "%{y:,.0f} mt/day<extra></extra>",
+        )
+    )
+    figure.update_layout(
+        legend=dict(orientation="h", x=1, xanchor="right", y=1.02, yanchor="bottom"),
+    )
+    figure.update_xaxes(tickformat="%b", hoverformat="%b %d")
+    figure.update_yaxes(title="Daily Average Shipment Volume (mt/day)")
+    return apply_chart_style(figure, height=440)
+
+
+def make_weekly_average_bar_chart(weekly: pd.DataFrame, comparison_year: int):
+    """Show current-year weekly daily averages with a four-week average."""
+    current = weekly[weekly["year"] == comparison_year]
+    if current.empty:
+        return None
+
+    figure = go.Figure()
+    figure.add_trace(
+        go.Bar(
+            x=current["x_date"],
+            y=current["daily_average_mt"],
+            marker_color="#93C5FD",
+            name="Weekly daily average",
+            hovertemplate="Weekly daily average: %{y:,.0f} mt/day<extra></extra>",
+        )
+    )
+    figure.add_trace(
+        go.Scatter(
+            x=current["x_date"],
+            y=current["four_week_average_mt"],
+            mode="lines+markers",
+            line=dict(color="#0F172A", width=2.2, dash="dot"),
+            marker=dict(color="#0F172A", size=5),
+            name="4-week average",
+            hovertemplate="4-week average: %{y:,.0f} mt/day<extra></extra>",
+        )
+    )
+    figure.update_layout(
+        bargap=0.22,
+        legend=dict(orientation="h", x=1, xanchor="right", y=1.02, yanchor="bottom"),
+    )
+    figure.update_xaxes(tickformat="%b", hoverformat="%b %d")
+    figure.update_yaxes(title="Daily Average Shipment Volume (mt/day)")
+    return apply_chart_style(figure, height=440)
+
+
 def render_section_header(kicker: str, title: str) -> None:
     st.markdown(
         f"""
@@ -424,6 +572,16 @@ with st.sidebar:
     if st.button("Refresh database cache", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
+
+comparison_year = end_date.year
+comparison_source_start = date(comparison_year - 5, 1, 1)
+try:
+    comparison_source = normalize_shipments(
+        get_source_data(comparison_source_start, end_date)
+    )
+except Exception as exc:
+    st.error(f"Failed to load weekly comparison data from the database: {exc}")
+    st.stop()
 
 filtered = apply_filters(
     source,
@@ -523,3 +681,41 @@ st.dataframe(
         "voy_intake_mt": st.column_config.NumberColumn("Shipment Volume (mt)", format="%.0f"),
     },
 )
+
+comparison_filtered = apply_filters(
+    comparison_source,
+    start_date=comparison_source_start,
+    end_date=end_date,
+    commodities=commodities,
+    destinations=destinations,
+)
+weekly_comparison = prepare_weekly_average_comparison(
+    comparison_filtered,
+    start_date=start_date,
+    end_date=end_date,
+)
+
+render_section_header("Historical context", "Weekly Average Comparison")
+st.caption(
+    "Weekly totals are divided by seven and compared across the selected year "
+    "and the previous five years. The current incomplete week is excluded."
+)
+range_chart = make_weekly_average_range_chart(weekly_comparison, comparison_year)
+if range_chart is None:
+    st.info("Not enough data is available to generate the historical weekly comparison.")
+else:
+    st.plotly_chart(
+        range_chart,
+        use_container_width=True,
+        key="weekly-average-range",
+    )
+
+bar_chart = make_weekly_average_bar_chart(weekly_comparison, comparison_year)
+if bar_chart is None:
+    st.info("Not enough current-year data is available to generate the weekly average chart.")
+else:
+    st.plotly_chart(
+        bar_chart,
+        use_container_width=True,
+        key="weekly-average-bar",
+    )

@@ -43,6 +43,19 @@ class UiLanguageTests(unittest.TestCase):
 
         self.assertNotIn("margin=dict(l=18, r=18, t=70, b=18)", app_source)
 
+    def test_app_renders_weekly_average_comparison_charts(self):
+        app_source = Path("app.py").read_text(encoding="utf-8")
+
+        for expected_token in (
+            "def make_weekly_average_range_chart",
+            "def make_weekly_average_bar_chart",
+            'render_section_header("Historical context", "Weekly Average Comparison")',
+            'key="weekly-average-range"',
+            'key="weekly-average-bar"',
+        ):
+            with self.subTest(expected_token=expected_token):
+                self.assertIn(expected_token, app_source)
+
 
 if __name__ == "__main__":
     unittest.main()
