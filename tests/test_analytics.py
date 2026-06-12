@@ -76,6 +76,30 @@ class AnalyticsTests(unittest.TestCase):
             {"Coal": 400, "Grain": 200},
         )
 
+    def test_weekly_aggregation_excludes_the_current_incomplete_week(self):
+        normalized = normalize_shipments(
+            pd.DataFrame(
+                {
+                    "load_start_date": [
+                        "2026-05-25",
+                        "2026-06-01",
+                        "2026-06-08",
+                    ],
+                    "voy_intake_mt": [100, 200, 50],
+                    "COMMODITY": ["Coal", "Coal", "Coal"],
+                    "discharge_country": ["Japan", "Japan", "Japan"],
+                }
+            )
+        )
+
+        result = aggregate_by_period(normalized, "Weekly", as_of="2026-06-12")
+
+        self.assertEqual(
+            result["period"].tolist(),
+            [pd.Timestamp("2026-05-25"), pd.Timestamp("2026-06-01")],
+        )
+        self.assertEqual(result["voy_intake_mt"].tolist(), [100, 200])
+
     def test_calculate_metrics_follows_current_filter(self):
         normalized = normalize_shipments(self.raw)
         coal_only = normalized[normalized["COMMODITY"] == "Coal"]
@@ -85,6 +109,27 @@ class AnalyticsTests(unittest.TestCase):
         self.assertEqual(metrics["total_volume"], 400)
         self.assertEqual(metrics["commodity_count"], 1)
         self.assertEqual(metrics["largest_commodity"], "Coal")
+
+    def test_weekly_period_change_uses_the_latest_two_completed_weeks(self):
+        normalized = normalize_shipments(
+            pd.DataFrame(
+                {
+                    "load_start_date": [
+                        "2026-05-25",
+                        "2026-06-01",
+                        "2026-06-08",
+                    ],
+                    "voy_intake_mt": [100, 200, 50],
+                    "COMMODITY": ["Coal", "Coal", "Coal"],
+                    "discharge_country": ["Japan", "Japan", "Japan"],
+                }
+            )
+        )
+
+        metrics = calculate_metrics(normalized, "Weekly", as_of="2026-06-12")
+
+        self.assertEqual(metrics["period_change_pct"], 100)
+        self.assertEqual(metrics["total_volume"], 350)
 
     def test_top_commodities_returns_only_ranked_commodities_without_other(self):
         normalized = normalize_shipments(self.raw)

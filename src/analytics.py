@@ -72,6 +72,7 @@ def aggregate_by_period(
     data: pd.DataFrame,
     grain: str,
     group_columns: Sequence[str] | None = None,
+    as_of: Any | None = None,
 ) -> pd.DataFrame:
     """Aggregate shipment volume by the selected calendar period."""
     if grain not in PERIOD_FREQUENCIES:
@@ -89,6 +90,13 @@ def aggregate_by_period(
             .dt.to_period("W-SUN")
             .dt.start_time
         )
+        reference_date = (
+            pd.Timestamp.now().normalize()
+            if as_of is None
+            else pd.Timestamp(as_of).normalize()
+        )
+        current_week_start = reference_date.to_period("W-SUN").start_time
+        result = result[result["period"] < current_week_start]
     elif grain == "Monthly":
         result["period"] = result["load_start_date"].dt.to_period("M").dt.start_time
     else:
@@ -118,7 +126,11 @@ def top_commodities(data: pd.DataFrame, limit: int = 10) -> pd.DataFrame:
     )
 
 
-def calculate_metrics(data: pd.DataFrame, grain: str) -> dict[str, Any]:
+def calculate_metrics(
+    data: pd.DataFrame,
+    grain: str,
+    as_of: Any | None = None,
+) -> dict[str, Any]:
     """Calculate headline values for the active filter scope."""
     if data.empty:
         return {
@@ -128,7 +140,7 @@ def calculate_metrics(data: pd.DataFrame, grain: str) -> dict[str, Any]:
             "largest_commodity": None,
         }
 
-    periods = aggregate_by_period(data, grain)
+    periods = aggregate_by_period(data, grain, as_of=as_of)
     period_change_pct = None
     if len(periods) >= 2:
         previous = periods.iloc[-2]["voy_intake_mt"]
