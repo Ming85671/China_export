@@ -33,6 +33,9 @@ class UiLanguageTests(unittest.TestCase):
             "nice_axis_upper_bound(max_volume)",
             'tickmode="linear"',
             "dtick=nice_axis_tick_step(y_axis_upper_bound)",
+            "figure.add_hline(",
+            "y=y_axis_upper_bound",
+            'line_color="#E8EEF7"',
             "apply_trend_chart_style(trend_chart, trend)",
         ):
             with self.subTest(expected_token=expected_token):

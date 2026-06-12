@@ -339,6 +339,12 @@ def apply_trend_chart_style(figure, trend: pd.DataFrame):
             tick0=0,
             dtick=nice_axis_tick_step(y_axis_upper_bound),
         )
+        figure.add_hline(
+            y=y_axis_upper_bound,
+            line_color="#E8EEF7",
+            line_width=1,
+            layer="below",
+        )
     return figure
 
 
