@@ -456,7 +456,7 @@ def make_weekly_average_range_chart(weekly: pd.DataFrame, comparison_year: int):
         legend=dict(orientation="h", x=1, xanchor="right", y=1.02, yanchor="bottom"),
     )
     figure.update_xaxes(tickformat="%b", hoverformat="%b %d")
-    figure.update_yaxes(title="Daily Average Shipment Volume (mt/day)")
+    figure.update_yaxes(title="Weekly Average Volume (mt/day)")
     return apply_chart_style(figure, height=440)
 
 
@@ -492,7 +492,7 @@ def make_weekly_average_bar_chart(weekly: pd.DataFrame, comparison_year: int):
         legend=dict(orientation="h", x=1, xanchor="right", y=1.02, yanchor="bottom"),
     )
     figure.update_xaxes(tickformat="%b", hoverformat="%b %d")
-    figure.update_yaxes(title="Daily Average Shipment Volume (mt/day)")
+    figure.update_yaxes(title="Weekly Average Volume (mt/day)")
     return apply_chart_style(figure, height=440)
 
 

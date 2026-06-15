@@ -50,11 +50,14 @@ class UiLanguageTests(unittest.TestCase):
             "def make_weekly_average_range_chart",
             "def make_weekly_average_bar_chart",
             'render_section_header("Historical context", "Weekly Average Comparison")',
+            'figure.update_yaxes(title="Weekly Average Volume (mt/day)")',
             'key="weekly-average-range"',
             'key="weekly-average-bar"',
         ):
             with self.subTest(expected_token=expected_token):
                 self.assertIn(expected_token, app_source)
+
+        self.assertNotIn('title="Daily Average Shipment Volume (mt/day)"', app_source)
 
 
 if __name__ == "__main__":
