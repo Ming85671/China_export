@@ -59,6 +59,19 @@ class UiLanguageTests(unittest.TestCase):
 
         self.assertNotIn('title="Daily Average Shipment Volume (mt/day)"', app_source)
 
+    def test_app_renders_destination_ranking_tables(self):
+        app_source = Path("app.py").read_text(encoding="utf-8")
+
+        for expected_token in (
+            'render_section_header("Destination analysis", "Destination Rankings")',
+            "top_destinations(filtered, limit=20)",
+            'key="destination-shipments-ranking"',
+            'key="destination-volume-ranking"',
+            "destination_columns = st.columns(2)",
+        ):
+            with self.subTest(expected_token=expected_token):
+                self.assertIn(expected_token, app_source)
+
 
 if __name__ == "__main__":
     unittest.main()

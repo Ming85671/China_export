@@ -12,6 +12,7 @@ from src.analytics import (
     prepare_weekly_average_comparison,
     weekly_historical_stats,
     top_commodities,
+    top_destinations,
 )
 
 
@@ -153,6 +154,37 @@ class AnalyticsTests(unittest.TestCase):
         self.assertEqual(set(result["COMMODITY"]), {"Steel", "Coal"})
         self.assertEqual(result["voy_intake_mt"].tolist(), [400, 400])
         self.assertNotIn("Other", result["COMMODITY"].tolist())
+
+    def test_top_destinations_ranks_by_shipments_and_volume(self):
+        normalized = normalize_shipments(
+            pd.DataFrame(
+                {
+                    "load_start_date": [
+                        "2026-01-01",
+                        "2026-01-02",
+                        "2026-01-03",
+                        "2026-01-04",
+                        "2026-01-05",
+                    ],
+                    "voy_intake_mt": [100, 200, 300, 900, 50],
+                    "COMMODITY": ["Coal"] * 5,
+                    "discharge_country": [
+                        "Japan",
+                        "Japan",
+                        "Korea",
+                        "Korea",
+                        "Vietnam",
+                    ],
+                }
+            )
+        )
+
+        by_shipments, by_volume = top_destinations(normalized, limit=2)
+
+        self.assertEqual(by_shipments["discharge_country"].tolist(), ["Japan", "Korea"])
+        self.assertEqual(by_shipments["shipment_count"].tolist(), [2, 2])
+        self.assertEqual(by_volume["discharge_country"].tolist(), ["Korea", "Japan"])
+        self.assertEqual(by_volume["voy_intake_mt"].tolist(), [1200, 300])
 
     def test_prepare_weekly_average_comparison_aligns_five_year_history_to_selected_window(self):
         normalized = normalize_shipments(

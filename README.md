@@ -9,6 +9,7 @@ Streamlit dashboard for commodity shipments loaded in China and discharged outsi
 - Searchable commodity and destination filters
 - Headline total follows the active commodity filter
 - Top 10 commodity ranking without an `Other` group
+- Top 20 destination ranking by shipment count and shipment volume
 - Selected commodities appear as separate lines in the main shipment-volume trend
 - Inspection-only detail table with no download feature, limited to the latest 1,000 rows for browser performance
 - Weekly daily-average comparison against the previous five years and historical ranges

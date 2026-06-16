@@ -163,6 +163,45 @@ def top_commodities(data: pd.DataFrame, limit: int = 10) -> pd.DataFrame:
     )
 
 
+def top_destinations(
+    data: pd.DataFrame,
+    limit: int = 20,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Rank destination countries by shipment count and shipment volume."""
+    shipment_columns = ["discharge_country", "shipment_count"]
+    volume_columns = ["discharge_country", "voy_intake_mt"]
+    if data.empty:
+        return (
+            pd.DataFrame(columns=shipment_columns),
+            pd.DataFrame(columns=volume_columns),
+        )
+
+    grouped = (
+        data.groupby("discharge_country", as_index=False)
+        .agg(
+            shipment_count=("discharge_country", "size"),
+            voy_intake_mt=("voy_intake_mt", "sum"),
+        )
+    )
+    by_shipments = (
+        grouped.sort_values(
+            ["shipment_count", "discharge_country"],
+            ascending=[False, True],
+        )
+        .head(limit)
+        .reset_index(drop=True)
+    )
+    by_volume = (
+        grouped.sort_values(
+            ["voy_intake_mt", "discharge_country"],
+            ascending=[False, True],
+        )
+        .head(limit)
+        .reset_index(drop=True)
+    )
+    return by_shipments[shipment_columns], by_volume[volume_columns]
+
+
 def prepare_weekly_average_comparison(
     data: pd.DataFrame,
     start_date: Any,

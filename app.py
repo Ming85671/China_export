@@ -17,6 +17,7 @@ from src.analytics import (
     normalize_shipments,
     prepare_weekly_average_comparison,
     top_commodities,
+    top_destinations,
     weekly_historical_stats,
 )
 from src.database import load_export_data
@@ -645,6 +646,40 @@ else:
         hovertemplate="%{y:,.0f} mt<extra></extra>",
     )
 st.plotly_chart(apply_trend_chart_style(trend_chart, trend), use_container_width=True)
+
+destination_by_shipments, destination_by_volume = top_destinations(filtered, limit=20)
+render_section_header("Destination analysis", "Destination Rankings")
+destination_columns = st.columns(2)
+with destination_columns[0]:
+    st.subheader("Top 20 by Shipments")
+    st.dataframe(
+        destination_by_shipments,
+        use_container_width=True,
+        hide_index=True,
+        key="destination-shipments-ranking",
+        column_config={
+            "discharge_country": "Destination Country",
+            "shipment_count": st.column_config.NumberColumn(
+                "Shipments",
+                format="%d",
+            ),
+        },
+    )
+with destination_columns[1]:
+    st.subheader("Top 20 by Volume")
+    st.dataframe(
+        destination_by_volume,
+        use_container_width=True,
+        hide_index=True,
+        key="destination-volume-ranking",
+        column_config={
+            "discharge_country": "Destination Country",
+            "voy_intake_mt": st.column_config.NumberColumn(
+                "Volume (mt)",
+                format="%.0f",
+            ),
+        },
+    )
 
 ranked = top_commodities(
     apply_filters(source, start_date, end_date, destinations=destinations),
