@@ -347,6 +347,160 @@ def apply_month_axis_jan_to_dec(figure, current: pd.DataFrame):
     return figure
 
 
+def prepare_weekly_average_comparison_full_history(
+    data: pd.DataFrame,
+    start_date: date,
+    end_date: date,
+) -> pd.DataFrame:
+    """
+    Build weekly daily-average data for full historical years and current year-to-date.
+
+    Historical years are calculated through their own Dec 31.
+    The comparison/current year is calculated only through the selected end_date.
+    Incomplete 7-day periods are excluded.
+    """
+    if data.empty:
+        return pd.DataFrame(
+            columns=[
+                "year",
+                "week_index",
+                "x_date",
+                "daily_average_mt",
+                "four_week_average_mt",
+            ]
+        )
+
+    required_columns = {"load_start_date", "voy_intake_mt"}
+    missing_columns = required_columns - set(data.columns)
+    if missing_columns:
+        raise KeyError(
+            "Weekly comparison requires columns: "
+            + ", ".join(sorted(required_columns))
+        )
+
+    comparison_year = end_date.year
+
+    weekly_source = data.copy()
+    weekly_source["load_start_date"] = pd.to_datetime(
+        weekly_source["load_start_date"]
+    )
+    weekly_source = weekly_source.dropna(subset=["load_start_date"])
+
+    if weekly_source.empty:
+        return pd.DataFrame(
+            columns=[
+                "year",
+                "week_index",
+                "x_date",
+                "daily_average_mt",
+                "four_week_average_mt",
+            ]
+        )
+
+    weekly_source["year"] = weekly_source["load_start_date"].dt.year
+    weekly_source["week_index"] = (
+        (weekly_source["load_start_date"].dt.dayofyear - 1) // 7
+    ) + 1
+
+    # Each week_index is a fixed 7-day calendar block:
+    # week 1 = Jan 1-Jan 7, week 2 = Jan 8-Jan 14, etc.
+    weekly_source["period_start"] = pd.to_datetime(
+        weekly_source["year"].astype(str) + "-01-01"
+    ) + pd.to_timedelta((weekly_source["week_index"] - 1) * 7, unit="D")
+    weekly_source["period_end"] = weekly_source["period_start"] + pd.Timedelta(days=6)
+
+    # Historical years should be complete. Current/comparison year should stop at end_date.
+    weekly_source["cutoff_date"] = pd.to_datetime(
+        weekly_source["year"].astype(str) + "-12-31"
+    )
+    weekly_source.loc[
+        weekly_source["year"] == comparison_year,
+        "cutoff_date",
+    ] = pd.Timestamp(end_date)
+
+    weekly_source = weekly_source[
+        weekly_source["period_end"] <= weekly_source["cutoff_date"]
+    ]
+
+    if weekly_source.empty:
+        return pd.DataFrame(
+            columns=[
+                "year",
+                "week_index",
+                "x_date",
+                "daily_average_mt",
+                "four_week_average_mt",
+            ]
+        )
+
+    weekly = (
+        weekly_source.groupby(["year", "week_index", "period_start"], as_index=False)
+        ["voy_intake_mt"]
+        .sum()
+        .sort_values(["year", "week_index"])
+    )
+
+    weekly["daily_average_mt"] = weekly["voy_intake_mt"] / 7
+
+    # Map every year's week to the comparison year's x-axis so all years overlay Jan-Dec.
+    weekly["x_date"] = pd.Timestamp(f"{comparison_year}-01-01") + pd.to_timedelta(
+        (weekly["week_index"] - 1) * 7,
+        unit="D",
+    )
+
+    weekly["four_week_average_mt"] = (
+        weekly.groupby("year")["daily_average_mt"]
+        .transform(lambda series: series.rolling(4, min_periods=1).mean())
+    )
+
+    return weekly[
+        [
+            "year",
+            "week_index",
+            "x_date",
+            "daily_average_mt",
+            "four_week_average_mt",
+        ]
+    ]
+
+
+def weekly_historical_stats_full_history(
+    weekly: pd.DataFrame,
+    comparison_year: int,
+) -> pd.DataFrame:
+    """Calculate historical min, q25, median, q75, and max using completed prior years."""
+    if weekly.empty:
+        return pd.DataFrame(
+            columns=["week_index", "x_date", "min", "q25", "median", "q75", "max"]
+        )
+
+    history = weekly[weekly["year"] < comparison_year].copy()
+    if history.empty:
+        return pd.DataFrame(
+            columns=["week_index", "x_date", "min", "q25", "median", "q75", "max"]
+        )
+
+    stats = (
+        history.groupby("week_index")["daily_average_mt"]
+        .agg(
+            min="min",
+            q25=lambda series: series.quantile(0.25),
+            median="median",
+            q75=lambda series: series.quantile(0.75),
+            max="max",
+        )
+        .reset_index()
+        .sort_values("week_index")
+    )
+
+    stats["x_date"] = pd.Timestamp(f"{comparison_year}-01-01") + pd.to_timedelta(
+        (stats["week_index"] - 1) * 7,
+        unit="D",
+    )
+
+    return stats[["week_index", "x_date", "min", "q25", "median", "q75", "max"]]
+
+
 def apply_trend_chart_style(figure, trend: pd.DataFrame):
     figure = apply_chart_style(figure)
     figure.update_layout(
@@ -388,7 +542,7 @@ def make_weekly_average_range_chart(weekly: pd.DataFrame, comparison_year: int):
     if current.empty:
         return None
 
-    history_stats = weekly_historical_stats(weekly, comparison_year)
+    history_stats = weekly_historical_stats_full_history(weekly, comparison_year)
     figure = go.Figure()
 
     if not history_stats.empty:
@@ -436,7 +590,7 @@ def make_weekly_average_range_chart(weekly: pd.DataFrame, comparison_year: int):
                 line=dict(width=0),
                 fill="tonexty",
                 fillcolor="rgba(37,99,235,0.18)",
-                name="Historical 25%-75%",
+                name="25%-75%",
                 customdata=history_stats[["q25", "q75"]],
                 hovertemplate=(
                     "25%-75%: %{customdata[0]:,.0f} - "
@@ -450,8 +604,8 @@ def make_weekly_average_range_chart(weekly: pd.DataFrame, comparison_year: int):
                 y=history_stats["median"],
                 mode="lines",
                 line=dict(color="#0F172A", width=2),
-                name="Historical median",
-                hovertemplate="Median: %{y:,.0f} mt/day<extra></extra>",
+                name="50%",
+                hovertemplate="50%: %{y:,.0f} mt/day<extra></extra>",
             )
         )
 
@@ -801,17 +955,17 @@ comparison_filtered = apply_filters(
     destinations=destinations,
 )
 
-weekly_comparison = prepare_weekly_average_comparison(
+weekly_comparison = prepare_weekly_average_comparison_full_history(
     comparison_filtered,
-    start_date=start_date,
+    start_date=comparison_source_start,
     end_date=end_date,
 )
 
 render_section_header("Historical context", "Weekly Average Comparison")
 
 st.caption(
-    "Weekly totals are divided by seven and compared across the selected year "
-    "and the previous five years. The current incomplete week is excluded."
+    "Weekly totals are divided by seven. Historical years are calculated as full years, "
+    "while the selected year is calculated through the latest completed week only."
 )
 
 range_chart = make_weekly_average_range_chart(weekly_comparison, comparison_year)
