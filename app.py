@@ -515,7 +515,12 @@ def weekly_historical_stats_full_history(
         .sort_values("week_index")
     )
 
-    stats["x_date"] = pd.Timestamp(f"{comparison_year}-01-01") + pd.to_timedelta(
+    comparison_year_start = pd.Timestamp(f"{comparison_year}-01-01")
+    comparison_first_monday = comparison_year_start + pd.to_timedelta(
+        (7 - comparison_year_start.weekday()) % 7,
+        unit="D",
+    )
+    stats["x_date"] = comparison_first_monday + pd.to_timedelta(
         (stats["week_index"] - 1) * 7,
         unit="D",
     )
