@@ -320,6 +320,33 @@ def apply_chart_style(figure, height: int = 390):
     return figure
 
 
+def apply_month_axis_jan_to_dec(figure, current: pd.DataFrame):
+    """Force weekly comparison charts to show Jan-Dec on the x-axis."""
+    if current.empty:
+        return figure
+
+    axis_year = current["x_date"].min().year
+
+    figure.update_xaxes(
+        tickmode="array",
+        tickvals=pd.date_range(
+            f"{axis_year}-01-01",
+            f"{axis_year}-12-01",
+            freq="MS",
+        ),
+        ticktext=[
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ],
+        range=[
+            pd.Timestamp(f"{axis_year}-01-01"),
+            pd.Timestamp(f"{axis_year}-12-31"),
+        ],
+        hoverformat="%b %d",
+    )
+    return figure
+
+
 def apply_trend_chart_style(figure, trend: pd.DataFrame):
     figure = apply_chart_style(figure)
     figure.update_layout(
@@ -363,6 +390,7 @@ def make_weekly_average_range_chart(weekly: pd.DataFrame, comparison_year: int):
 
     history_stats = weekly_historical_stats(weekly, comparison_year)
     figure = go.Figure()
+
     if not history_stats.empty:
         figure.add_trace(
             go.Scatter(
@@ -384,7 +412,10 @@ def make_weekly_average_range_chart(weekly: pd.DataFrame, comparison_year: int):
                 fillcolor="rgba(37,99,235,0.09)",
                 name="Historical min-max",
                 customdata=history_stats[["min", "max"]],
-                hovertemplate="Min-max: %{customdata[0]:,.0f} - %{customdata[1]:,.0f} mt/day<extra></extra>",
+                hovertemplate=(
+                    "Min-max: %{customdata[0]:,.0f} - "
+                    "%{customdata[1]:,.0f} mt/day<extra></extra>"
+                ),
             )
         )
         figure.add_trace(
@@ -407,7 +438,10 @@ def make_weekly_average_range_chart(weekly: pd.DataFrame, comparison_year: int):
                 fillcolor="rgba(37,99,235,0.18)",
                 name="Historical 25%-75%",
                 customdata=history_stats[["q25", "q75"]],
-                hovertemplate="25%-75%: %{customdata[0]:,.0f} - %{customdata[1]:,.0f} mt/day<extra></extra>",
+                hovertemplate=(
+                    "25%-75%: %{customdata[0]:,.0f} - "
+                    "%{customdata[1]:,.0f} mt/day<extra></extra>"
+                ),
             )
         )
         figure.add_trace(
@@ -421,9 +455,8 @@ def make_weekly_average_range_chart(weekly: pd.DataFrame, comparison_year: int):
             )
         )
 
-    past_years = sorted(
-        weekly.loc[weekly["year"] < comparison_year, "year"].unique()
-    )
+    past_years = sorted(weekly.loc[weekly["year"] < comparison_year, "year"].unique())
+
     for index, year in enumerate(past_years):
         year_data = weekly[weekly["year"] == year]
         figure.add_trace(
@@ -453,12 +486,22 @@ def make_weekly_average_range_chart(weekly: pd.DataFrame, comparison_year: int):
             hovertemplate=f"{comparison_year}: " + "%{y:,.0f} mt/day<extra></extra>",
         )
     )
+
     figure.update_layout(
-        legend=dict(orientation="h", x=1, xanchor="right", y=1.02, yanchor="bottom"),
+        legend=dict(
+            orientation="h",
+            x=1,
+            xanchor="right",
+            y=1.02,
+            yanchor="bottom",
+        ),
     )
-    figure.update_xaxes(tickformat="%b", hoverformat="%b %d")
     figure.update_yaxes(title="Weekly Average Volume (mt/day)")
-    return apply_chart_style(figure, height=440)
+
+    figure = apply_chart_style(figure, height=440)
+    figure = apply_month_axis_jan_to_dec(figure, current)
+
+    return figure
 
 
 def make_weekly_average_bar_chart(weekly: pd.DataFrame, comparison_year: int):
@@ -468,6 +511,7 @@ def make_weekly_average_bar_chart(weekly: pd.DataFrame, comparison_year: int):
         return None
 
     figure = go.Figure()
+
     figure.add_trace(
         go.Bar(
             x=current["x_date"],
@@ -477,6 +521,7 @@ def make_weekly_average_bar_chart(weekly: pd.DataFrame, comparison_year: int):
             hovertemplate="Weekly daily average: %{y:,.0f} mt/day<extra></extra>",
         )
     )
+
     figure.add_trace(
         go.Scatter(
             x=current["x_date"],
@@ -488,13 +533,23 @@ def make_weekly_average_bar_chart(weekly: pd.DataFrame, comparison_year: int):
             hovertemplate="4-week average: %{y:,.0f} mt/day<extra></extra>",
         )
     )
+
     figure.update_layout(
         bargap=0.22,
-        legend=dict(orientation="h", x=1, xanchor="right", y=1.02, yanchor="bottom"),
+        legend=dict(
+            orientation="h",
+            x=1,
+            xanchor="right",
+            y=1.02,
+            yanchor="bottom",
+        ),
     )
-    figure.update_xaxes(tickformat="%b", hoverformat="%b %d")
     figure.update_yaxes(title="Weekly Average Volume (mt/day)")
-    return apply_chart_style(figure, height=440)
+
+    figure = apply_chart_style(figure, height=440)
+    figure = apply_month_axis_jan_to_dec(figure, current)
+
+    return figure
 
 
 def render_section_header(kicker: str, title: str) -> None:
@@ -576,6 +631,7 @@ with st.sidebar:
 
 comparison_year = end_date.year
 comparison_source_start = date(comparison_year - 5, 1, 1)
+
 try:
     comparison_source = normalize_shipments(
         get_source_data(comparison_source_start, end_date)
@@ -593,7 +649,10 @@ filtered = apply_filters(
 )
 
 if filtered.empty:
-    st.warning("No data is available for the current filters. Adjust the date range, commodity, or destination country.")
+    st.warning(
+        "No data is available for the current filters. Adjust the date range, "
+        "commodity, or destination country."
+    )
     st.stop()
 
 scope_label = "All commodities" if not commodities else ", ".join(commodities[:3])
@@ -604,6 +663,7 @@ st.info(f"Current total shipment volume scope: {scope_label}")
 metrics = calculate_metrics(filtered, grain)
 metric_columns = st.columns(4)
 metric_columns[0].metric("Total Shipment Volume", format_volume(metrics["total_volume"]))
+
 change = metrics["period_change_pct"]
 metric_columns[1].metric(
     "Latest Period Change",
@@ -613,6 +673,7 @@ metric_columns[2].metric("Commodity Count", f"{metrics['commodity_count']:,}")
 metric_columns[3].metric("Largest Commodity by Volume", metrics["largest_commodity"] or "N/A")
 
 render_section_header("Trend analysis", "Shipment Volume Trend")
+
 if commodities:
     trend = aggregate_by_period(filtered, grain, group_columns=["COMMODITY"])
     trend_chart = px.line(
@@ -645,11 +706,14 @@ else:
         fillcolor="rgba(37,99,235,0.12)",
         hovertemplate="%{y:,.0f} mt<extra></extra>",
     )
+
 st.plotly_chart(apply_trend_chart_style(trend_chart, trend), use_container_width=True)
 
 destination_by_shipments, destination_by_volume = top_destinations(filtered, limit=20)
+
 render_section_header("Destination analysis", "Destination Rankings")
 destination_columns = st.columns(2)
+
 with destination_columns[0]:
     st.subheader("Top 20 by Shipments")
     st.dataframe(
@@ -665,6 +729,7 @@ with destination_columns[0]:
             ),
         },
     )
+
 with destination_columns[1]:
     st.subheader("Top 20 by Volume")
     st.dataframe(
@@ -685,7 +750,9 @@ ranked = top_commodities(
     apply_filters(source, start_date, end_date, destinations=destinations),
     limit=10,
 )
+
 render_section_header("Ranked comparison", "Top 10 Export Commodities")
+
 ranking_chart = px.bar(
     ranked.sort_values("voy_intake_mt"),
     x="voy_intake_mt",
@@ -699,12 +766,18 @@ ranking_chart.update_traces(
     hovertemplate="%{y}<br>%{x:,.0f} mt<extra></extra>",
 )
 ranking_chart.update_layout(hovermode="closest", bargap=0.3)
+
 st.plotly_chart(apply_chart_style(ranking_chart), use_container_width=True)
 
 render_section_header("Data inspection", "Filtered Shipment Details")
-st.caption("For data verification only; downloads are not available. The latest 1,000 rows are displayed for performance.")
+st.caption(
+    "For data verification only; downloads are not available. "
+    "The latest 1,000 rows are displayed for performance."
+)
+
 detail = filtered.sort_values("load_start_date", ascending=False).head(1000).copy()
 detail["load_start_date"] = detail["load_start_date"].dt.date
+
 st.dataframe(
     detail,
     use_container_width=True,
@@ -713,7 +786,10 @@ st.dataframe(
         "load_start_date": "Load Start Date",
         "COMMODITY": "Commodity",
         "discharge_country": "Destination Country",
-        "voy_intake_mt": st.column_config.NumberColumn("Shipment Volume (mt)", format="%.0f"),
+        "voy_intake_mt": st.column_config.NumberColumn(
+            "Shipment Volume (mt)",
+            format="%.0f",
+        ),
     },
 )
 
@@ -724,6 +800,7 @@ comparison_filtered = apply_filters(
     commodities=commodities,
     destinations=destinations,
 )
+
 weekly_comparison = prepare_weekly_average_comparison(
     comparison_filtered,
     start_date=start_date,
@@ -731,11 +808,14 @@ weekly_comparison = prepare_weekly_average_comparison(
 )
 
 render_section_header("Historical context", "Weekly Average Comparison")
+
 st.caption(
     "Weekly totals are divided by seven and compared across the selected year "
     "and the previous five years. The current incomplete week is excluded."
 )
+
 range_chart = make_weekly_average_range_chart(weekly_comparison, comparison_year)
+
 if range_chart is None:
     st.info("Not enough data is available to generate the historical weekly comparison.")
 else:
@@ -746,6 +826,7 @@ else:
     )
 
 bar_chart = make_weekly_average_bar_chart(weekly_comparison, comparison_year)
+
 if bar_chart is None:
     st.info("Not enough current-year data is available to generate the weekly average chart.")
 else:
