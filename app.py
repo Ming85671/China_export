@@ -355,9 +355,10 @@ def prepare_weekly_average_comparison_full_history(
     """
     Build weekly daily-average data for full historical years and current year-to-date.
 
-    Historical years are calculated through their own Dec 31.
+    Weeks are Monday-Sunday.
+    Historical years are calculated through their own completed Monday-Sunday weeks.
     The comparison/current year is calculated only through the selected end_date.
-    Incomplete 7-day periods are excluded.
+    Incomplete Monday-Sunday weeks are excluded.
     """
     if data.empty:
         return pd.DataFrame(
@@ -397,19 +398,34 @@ def prepare_weekly_average_comparison_full_history(
             ]
         )
 
-    weekly_source["year"] = weekly_source["load_start_date"].dt.year
+    # Convert every shipment date to the Monday of its week.
+    weekly_source["week_start"] = (
+        weekly_source["load_start_date"]
+        - pd.to_timedelta(weekly_source["load_start_date"].dt.weekday, unit="D")
+    ).dt.normalize()
+    weekly_source["week_end"] = weekly_source["week_start"] + pd.Timedelta(days=6)
+
+    # Assign the week to the year in which the Monday starts.
+    # This makes every plotted weekly point begin on Monday.
+    weekly_source["year"] = weekly_source["week_start"].dt.year
+
+    # First Monday of each assigned year.
+    year_start = pd.to_datetime(weekly_source["year"].astype(str) + "-01-01")
+    first_monday = year_start + pd.to_timedelta(
+        (7 - year_start.dt.weekday) % 7,
+        unit="D",
+    )
+
+    weekly_source["first_monday"] = first_monday
+    weekly_source = weekly_source[weekly_source["week_start"] >= weekly_source["first_monday"]]
+
     weekly_source["week_index"] = (
-        (weekly_source["load_start_date"].dt.dayofyear - 1) // 7
-    ) + 1
+        ((weekly_source["week_start"] - weekly_source["first_monday"]).dt.days // 7)
+        + 1
+    )
 
-    # Each week_index is a fixed 7-day calendar block:
-    # week 1 = Jan 1-Jan 7, week 2 = Jan 8-Jan 14, etc.
-    weekly_source["period_start"] = pd.to_datetime(
-        weekly_source["year"].astype(str) + "-01-01"
-    ) + pd.to_timedelta((weekly_source["week_index"] - 1) * 7, unit="D")
-    weekly_source["period_end"] = weekly_source["period_start"] + pd.Timedelta(days=6)
-
-    # Historical years should be complete. Current/comparison year should stop at end_date.
+    # Historical years use completed Monday-Sunday weeks within their own year.
+    # Current/comparison year uses completed Monday-Sunday weeks up to end_date.
     weekly_source["cutoff_date"] = pd.to_datetime(
         weekly_source["year"].astype(str) + "-12-31"
     )
@@ -419,7 +435,7 @@ def prepare_weekly_average_comparison_full_history(
     ] = pd.Timestamp(end_date)
 
     weekly_source = weekly_source[
-        weekly_source["period_end"] <= weekly_source["cutoff_date"]
+        weekly_source["week_end"] <= weekly_source["cutoff_date"]
     ]
 
     if weekly_source.empty:
@@ -434,7 +450,7 @@ def prepare_weekly_average_comparison_full_history(
         )
 
     weekly = (
-        weekly_source.groupby(["year", "week_index", "period_start"], as_index=False)
+        weekly_source.groupby(["year", "week_index", "week_start"], as_index=False)
         ["voy_intake_mt"]
         .sum()
         .sort_values(["year", "week_index"])
@@ -442,8 +458,13 @@ def prepare_weekly_average_comparison_full_history(
 
     weekly["daily_average_mt"] = weekly["voy_intake_mt"] / 7
 
-    # Map every year's week to the comparison year's x-axis so all years overlay Jan-Dec.
-    weekly["x_date"] = pd.Timestamp(f"{comparison_year}-01-01") + pd.to_timedelta(
+    # Put all years on the comparison year's Monday-based x-axis.
+    comparison_year_start = pd.Timestamp(f"{comparison_year}-01-01")
+    comparison_first_monday = comparison_year_start + pd.to_timedelta(
+        (7 - comparison_year_start.weekday()) % 7,
+        unit="D",
+    )
+    weekly["x_date"] = comparison_first_monday + pd.to_timedelta(
         (weekly["week_index"] - 1) * 7,
         unit="D",
     )
@@ -462,6 +483,7 @@ def prepare_weekly_average_comparison_full_history(
             "four_week_average_mt",
         ]
     ]
+
 
 
 def weekly_historical_stats_full_history(
@@ -964,8 +986,8 @@ weekly_comparison = prepare_weekly_average_comparison_full_history(
 render_section_header("Historical context", "Weekly Average Comparison")
 
 st.caption(
-    "Weekly totals are divided by seven. Historical years are calculated as full years, "
-    "while the selected year is calculated through the latest completed week only."
+    "Weekly totals use Monday-Sunday weeks and are divided by seven. Historical years "
+    "are calculated with completed weeks, while the selected year runs through the latest completed week."
 )
 
 range_chart = make_weekly_average_range_chart(weekly_comparison, comparison_year)
