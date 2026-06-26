@@ -1,1 +1,1 @@
-"""China export dashboard package."""
+"""Export dashboard package."""

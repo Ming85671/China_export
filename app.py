@@ -27,7 +27,7 @@ CHART_COLORS = ["#2563EB", "#D97706", "#0F766E", "#7C3AED", "#BE123C", "#0369A1"
 
 
 st.set_page_config(
-    page_title="China Export Monitor",
+    page_title="Export Monitor",
     page_icon=None,
     layout="wide",
     initial_sidebar_state="expanded",
@@ -274,9 +274,16 @@ st.markdown(
 )
 
 
+COUNTRY_OPTIONS = ["China", "Brazil"]
+
+
 @st.cache_data(ttl=3600, show_spinner="Loading database data...")
-def get_source_data(start_date: date, end_date: date) -> pd.DataFrame:
-    return load_export_data(st.secrets["mysql"], start_date, end_date)
+def get_source_data(
+    load_country: str,
+    start_date: date,
+    end_date: date,
+) -> pd.DataFrame:
+    return load_export_data(st.secrets["mysql"], load_country, start_date, end_date)
 
 
 def format_volume(value: float) -> str:
@@ -745,16 +752,26 @@ def render_section_header(kicker: str, title: str) -> None:
     )
 
 
+with st.sidebar:
+    st.header("Navigation")
+    selected_country = st.selectbox(
+        "Load country",
+        options=COUNTRY_OPTIONS,
+        index=0,
+    )
+    st.divider()
+
+
 st.markdown(
-    """
+    f"""
     <div class="dashboard-hero">
-        <div class="dashboard-eyebrow">China Export Monitor</div>
-        <h1>China Export Commodity Shipments</h1>
+        <div class="dashboard-eyebrow">{selected_country} Export Monitor</div>
+        <h1>{selected_country} Export Commodity Shipments</h1>
         <p>
-            Track shipment volume loaded in China and discharged worldwide.
+            Track shipment volume loaded in {selected_country} and discharged worldwide.
             Explore commodity trends, compare leading exports, and inspect the underlying shipment records.
         </p>
-        <div class="dashboard-badge">Live database scope · China outbound cargoes</div>
+        <div class="dashboard-badge">Live database scope · {selected_country} outbound cargoes</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -762,7 +779,9 @@ st.markdown(
 
 with st.sidebar:
     st.header("Filters")
-    st.caption("Refine the date range, reporting grain, commodity, and destination.")
+    st.caption(
+        "Refine the date range, reporting grain, commodity, and destination."
+    )
     default_end = date.today()
     default_start = default_end - timedelta(days=365)
     selected_dates = st.date_input(
@@ -784,7 +803,7 @@ if not isinstance(selected_dates, (tuple, list)) or len(selected_dates) != 2:
 start_date, end_date = selected_dates
 
 try:
-    source = normalize_shipments(get_source_data(start_date, end_date))
+    source = normalize_shipments(get_source_data(selected_country, start_date, end_date))
 except (KeyError, StreamlitSecretNotFoundError):
     st.error(
         "The database connection is not configured. Add the `[mysql]` configuration "
@@ -800,11 +819,13 @@ with st.sidebar:
         "Commodity",
         options=sorted(source["COMMODITY"].unique()),
         placeholder="All commodities by default; search to select multiple",
+        key=f"commodities-{selected_country}",
     )
     destinations = st.multiselect(
         "Destination country",
         options=sorted(source["discharge_country"].unique()),
-        placeholder="All destinations outside China by default",
+        placeholder=f"All destinations outside {selected_country} by default",
+        key=f"destinations-{selected_country}",
     )
     if st.button("Refresh database cache", use_container_width=True):
         st.cache_data.clear()
@@ -815,7 +836,7 @@ comparison_source_start = date(comparison_year - 5, 1, 1)
 
 try:
     comparison_source = normalize_shipments(
-        get_source_data(comparison_source_start, end_date)
+        get_source_data(selected_country, comparison_source_start, end_date)
     )
 except Exception as exc:
     st.error(f"Failed to load weekly comparison data from the database: {exc}")

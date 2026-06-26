@@ -12,8 +12,8 @@ class DatabaseQueryTests(unittest.TestCase):
         self.assertIn("voy_intake_mt", query)
         self.assertIn("COMMODITY", query)
         self.assertIn("discharge_country", query)
-        self.assertIn("load_country = 'China'", query)
-        self.assertIn("discharge_country <> 'China'", query)
+        self.assertIn("load_country = :load_country", query)
+        self.assertIn("discharge_country <> :load_country", query)
         self.assertIn("ORDER BY load_start_date DESC", query)
 
 

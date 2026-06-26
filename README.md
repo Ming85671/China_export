@@ -1,10 +1,11 @@
-# China Export Monitor
+# Export Monitor
 
-Streamlit dashboard for commodity shipments loaded in China and discharged outside China.
+Streamlit dashboard for commodity shipments loaded in China or Brazil and discharged outside the selected load country.
 
 ## Dashboard behavior
 
-- Fixed SQL scope: `load_country = 'China'` and `discharge_country <> 'China'`
+- Sidebar navigation switches the load country between China and Brazil
+- Fixed SQL scope for the selected country: `load_country = :load_country` and `discharge_country <> :load_country`
 - Daily, weekly, and monthly shipment-volume views
 - Searchable commodity and destination filters
 - Headline total follows the active commodity filter

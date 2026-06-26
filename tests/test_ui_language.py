@@ -72,6 +72,20 @@ class UiLanguageTests(unittest.TestCase):
             with self.subTest(expected_token=expected_token):
                 self.assertIn(expected_token, app_source)
 
+    def test_app_renders_load_country_navigation(self):
+        app_source = Path("app.py").read_text(encoding="utf-8")
+
+        for expected_token in (
+            'COUNTRY_OPTIONS = ["China", "Brazil"]',
+            'st.header("Navigation")',
+            'st.selectbox(',
+            '"Load country"',
+            "get_source_data(selected_country, start_date, end_date)",
+            "get_source_data(selected_country, comparison_source_start, end_date)",
+        ):
+            with self.subTest(expected_token=expected_token):
+                self.assertIn(expected_token, app_source)
+
 
 if __name__ == "__main__":
     unittest.main()

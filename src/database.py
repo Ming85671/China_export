@@ -8,7 +8,7 @@ import pandas as pd
 
 
 def build_export_query(include_date_range: bool = False) -> str:
-    """Build the fixed China-export query for the `axs` source table."""
+    """Build the fixed export query for the `axs` source table."""
     date_clause = ""
     if include_date_range:
         date_clause = """
@@ -23,8 +23,8 @@ def build_export_query(include_date_range: bool = False) -> str:
             COMMODITY,
             discharge_country
         FROM axs
-        WHERE load_country = 'China'
-          AND discharge_country <> 'China'
+        WHERE load_country = :load_country
+          AND discharge_country <> :load_country
           AND load_start_date IS NOT NULL
           AND voy_intake_mt IS NOT NULL
           AND COMMODITY IS NOT NULL
@@ -50,10 +50,11 @@ def create_connection_url(config: Mapping[str, Any]) -> str:
 
 def load_export_data(
     config: Mapping[str, Any],
+    load_country: str,
     start_date: Any,
     end_date: Any,
 ) -> pd.DataFrame:
-    """Load scoped China-export rows for an inclusive dashboard date range."""
+    """Load scoped export rows for an inclusive dashboard date range."""
     from sqlalchemy import create_engine, text
 
     engine = create_engine(
@@ -62,6 +63,7 @@ def load_export_data(
         connect_args={"ssl": {"check_hostname": True}},
     )
     params = {
+        "load_country": load_country,
         "start_date": pd.Timestamp(start_date).date(),
         "end_date": (pd.Timestamp(end_date) + pd.Timedelta(days=1)).date(),
     }
